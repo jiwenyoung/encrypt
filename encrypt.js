@@ -146,6 +146,10 @@ const main = async () => {
         const decrypt = async (source, destination, password, salt) => {
           // Read encrypted data
           let data = (await fs.promises.readFile(source)).toString('utf8')
+          let bit = data.substring(32,33)
+          if(bit !== '.'){
+            return false
+          }
   
           // Compose decipher object
           let key = await scrypt(password, salt, 24)
@@ -160,19 +164,19 @@ const main = async () => {
           decrypted = decrypted + decipher.final('utf8')
   
           // Write to a file
-          // let basename = path.basename(source).replace('.enc', '')
           let writeFile = path.resolve(destination)
           await fs.promises.writeFile(writeFile, decrypted)
   
-          // output
-          console.log(chalk.green.bold(`Decrypted to ${writeFile}`))
+          return true
         }
-
+        
         let stat = await fs.promises.lstat(source)
         if(stat.isFile()){
           let from = source
-          let to = source.replace('.enc', '')
-          await decrypt(from, to, password, salt)
+          let to = path.resolve(path.basename(from, '.enc'))
+          if(await decrypt(from, to, password, salt)){
+            console.log(chalk.green.bold(`Decrypted to ${to}`))
+          }
         }else{
           let decryptedFolder = path.join(source, 'decrypted')
           await fs.promises.mkdir(decryptedFolder, { recursive: true })
@@ -186,7 +190,11 @@ const main = async () => {
                 if(isEnc(file)){
                   let from = file
                   let to = path.join(decryptedFolder, path.basename(file, '.enc'))
-                  await decrypt(from, to , password, salt)
+                  if(await decrypt(from, to , password, salt)){
+                    console.log(chalk.green.bold(`Decrypted to ${to}`))
+                  }else{
+                    console.log(chalk.red.bold(`Fail to decrypt ${from}`))
+                  }
                 }
               }
             })
